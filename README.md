@@ -6,7 +6,7 @@ Built with React + Vite + PWA support.
 
 🌐 Live Demo
 
-👉 https://your-netlify-link.netlify.app
+👉 https://dev-humor-hub.netlify.app/
 
 ✨ Features
 
