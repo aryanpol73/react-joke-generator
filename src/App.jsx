@@ -1,131 +1,137 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useJoke } from "./hooks/useJoke";
 
 function App() {
-  const [joke, setJoke] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const { joke, loading, error, fetchJoke, goToPrevious } = useJoke();
+
   const [showPunchline, setShowPunchline] = useState(false);
-  const [revealing, setRevealing] = useState(false);
+  const [category, setCategory] = useState("Programming");
 
-  const fetchJoke = async () => {
-    setLoading(true);
-    setShowPunchline(false);
-
-    try {
-      const response = await fetch(
-        "https://v2.jokeapi.dev/joke/Programming?type=twopart"
-      );
-
-      const data = await response.json();
-
-      if (data.type === "twopart") {
-        setJoke({
-          setup: data.setup,
-          punchline: data.delivery,
-        });
-      } else {
-        setJoke({
-          setup: data.joke,
-          punchline: "",
-        });
-      }
-    } catch (error) {
-      console.log("Error fetching joke:", error);
-    }
-
-    setLoading(false);
-  };
+  const [favorites, setFavorites] = useState(() => {
+    const stored = localStorage.getItem("favorites");
+    return stored ? JSON.parse(stored) : [];
+  });
 
   useEffect(() => {
-    fetchJoke();
-  }, []);
+    fetchJoke(category);
+    setShowPunchline(false);
+  }, [category]);
 
-  const handleButtonClick = () => {
+  useEffect(() => {
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+  }, [favorites]);
+
+  const handleNext = () => {
     if (!showPunchline) {
-      setRevealing(true);
-
-      setTimeout(() => {
-        setShowPunchline(true);
-        setRevealing(false);
-      }, 800);
+      setShowPunchline(true);
     } else {
-      fetchJoke();
+      setShowPunchline(false);
+      fetchJoke(category);
     }
+  };
+
+  const handlePrevious = () => {
+    const didNavigate = goToPrevious(category);
+    if (didNavigate) {
+      setShowPunchline(true);
+    }
+  };
+
+  const saveJoke = () => {
+    if (!joke) return;
+
+    const exists = favorites.some(
+      (fav) =>
+        fav.setup === joke.setup &&
+        fav.punchline === joke.punchline
+    );
+
+    if (!exists) {
+      setFavorites([...favorites, joke]);
+    }
+  };
+
+  const removeJoke = (index) => {
+    const updated = favorites.filter((_, i) => i !== index);
+    setFavorites(updated);
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Programming Joke Generator</h1>
+    <div style={{ padding: "40px", textAlign: "center" }}>
+      <h1>Dev Humor Hub</h1>
 
-        {loading ? (
-          <p>Loading...</p>
-        ) : (
-          joke && (
-            <>
-              <h3 style={styles.setup}>{joke.setup}</h3>
+      {/* Category Selector */}
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        style={{ marginBottom: "20px", padding: "5px" }}
+      >
+        <option value="Programming">Programming</option>
+        <option value="Dark">Dark</option>
+        <option value="Pun">Pun</option>
+        <option value="Misc">Misc</option>
+        <option value="Any">Any</option>
+      </select>
 
-              {showPunchline && joke.punchline && (
-                <p style={styles.punchline}>{joke.punchline}</p>
-              )}
-            </>
-          )
-        )}
+      {/* Loading */}
+      {loading && <p>Loading...</p>}
+
+      {/* Error */}
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {/* Joke Display */}
+      {!loading && joke && (
+        <>
+          <h3>{joke.setup}</h3>
+          {showPunchline && <p>{joke.punchline}</p>}
+
+          <button
+            onClick={saveJoke}
+            style={{ marginTop: "10px", padding: "6px 10px" }}
+          >
+            ❤️ Save Joke
+          </button>
+        </>
+      )}
+
+      {/* Navigation Buttons */}
+      <div style={{ marginTop: "20px" }}>
+        <button
+          onClick={handleNext}
+          style={{ padding: "8px 12px", marginRight: "10px" }}
+        >
+          {showPunchline ? "Next Joke" : "Reveal Punchline"}
+        </button>
 
         <button
-          onClick={handleButtonClick}
-          style={styles.button}
-          disabled={revealing}
+          onClick={handlePrevious}
+          style={{ padding: "8px 12px" }}
         >
-          {revealing
-            ? "Revealing..."
-            : showPunchline
-            ? "Next Joke"
-            : "Reveal Punchline"}
+          Previous Joke
         </button>
       </div>
+
+      {/* Favorites Section */}
+      <hr style={{ margin: "30px 0" }} />
+
+      <h2>Saved Jokes</h2>
+
+      {favorites.length === 0 && <p>No saved jokes yet.</p>}
+
+      {favorites.map((fav, index) => (
+        <div key={index} style={{ marginBottom: "15px" }}>
+          <strong>{fav.setup}</strong>
+          <p>{fav.punchline}</p>
+          <button
+            onClick={() => removeJoke(index)}
+            style={{ padding: "4px 8px" }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    height: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "linear-gradient(135deg, #1e1e2f, #2c2c54)",
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    padding: "40px",
-    borderRadius: "15px",
-    width: "420px",
-    textAlign: "center",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-  },
-  title: {
-    marginBottom: "20px",
-  },
-  setup: {
-    fontWeight: "600",
-    fontSize: "18px",
-  },
-  punchline: {
-    marginTop: "15px",
-    fontSize: "20px",
-    color: "#4f46e5",
-    fontWeight: "600",
-  },
-  button: {
-    marginTop: "25px",
-    padding: "10px 20px",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: "#4f46e5",
-    color: "white",
-    cursor: "pointer",
-    fontWeight: "600",
-  },
-};
 
 export default App;
